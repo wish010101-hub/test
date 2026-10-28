@@ -1,0 +1,2 @@
+# Official upstream image; source and AGPL license: https://github.com/imputnet/cobalt
+FROM ghcr.io/imputnet/cobalt:11
