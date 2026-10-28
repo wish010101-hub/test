@@ -62,7 +62,7 @@ async def run_child(payload, folder, timeout, job=None):
     req.write_text(json.dumps(payload))
     env = {k:v for k,v in os.environ.items() if k in ('PATH','LANG','SSL_CERT_FILE')}
     proc = await asyncio.create_subprocess_exec(sys.executable, str(BASE/'worker.py'), str(req),
-        cwd=folder, env=env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, start_new_session=True)
+        cwd=folder, env=env, stdout=asyncio.subprocess.PIPE, start_new_session=True)
     result = {}
     async def read():
         nonlocal result

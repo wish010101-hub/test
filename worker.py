@@ -97,6 +97,9 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:
+    except Exception as error:
+        import re
+        diagnostic = re.sub(r'https?://\S+', '[URL]', str(error))[:500]
+        print(type(error).__name__ + ': ' + diagnostic, file=sys.stderr, flush=True)
         emit({'error':'Платформа не предоставила доступное видео. Возможно, требуется вход, контент ограничен или превышены лимиты. Обход ограничений не выполняется.'})
         sys.exit(1)
