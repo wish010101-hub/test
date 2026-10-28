@@ -101,5 +101,16 @@ if __name__ == '__main__':
         import re
         diagnostic = re.sub(r'https?://\S+', '[URL]', str(error))[:500]
         print(type(error).__name__ + ': ' + diagnostic, file=sys.stderr, flush=True)
-        emit({'error':'Платформа не предоставила доступное видео. Возможно, требуется вход, контент ограничен или превышены лимиты. Обход ограничений не выполняется.'})
+        message = str(error).lower()
+        if 'not a bot' in message or 'confirm you' in message:
+            explanation = 'YouTube требует вход и проверку «Я не робот» для запросов с этого сервера. Скачивание сейчас недоступно. FrameSave не обходит эту защиту.'
+        elif 'empty media response' in message:
+            explanation = 'Instagram не предоставил медиа без авторизации. Публикация недоступна этому серверу; вход и cookies не используются.'
+        elif 'private' in message or 'login' in message or 'sign in' in message:
+            explanation = 'Платформа требует вход или ограничила доступ к публикации. FrameSave поддерживает только доступный без авторизации контент.'
+        elif 'unavailable' in message or 'not available' in message:
+            explanation = 'Видео недоступно: публикация удалена или платформа ограничила доступ.'
+        else:
+            explanation = 'Не удалось получить видео. Возможны сетевой сбой, ограничение платформы или превышение лимитов. Обход ограничений не выполняется.'
+        emit({'error':explanation})
         sys.exit(1)
