@@ -54,7 +54,7 @@ def main():
     with YoutubeDL(opts) as ydl:
         # Avoid native curl transports, which would bypass the socket guard.
         ydl._request_director.handlers.clear()
-        ydl._request_director.add_handler(UrllibRH(logger=Silent(), proxies={'all':''}, timeout=15))
+        ydl._request_director.add_handler(UrllibRH(logger=Silent(), proxies={'all':None}, timeout=15))
         data = ydl.extract_info(url, download=False)
         entries = list(data.get('entries') or [data])[:20]
         available = []
