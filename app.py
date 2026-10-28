@@ -2,6 +2,7 @@ import asyncio
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager, suppress
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -29,12 +30,15 @@ active_info = 0
 salt = secrets.token_bytes(32)
 
 def owner(request):
-    # Uvicorn trusts forwarding headers only from explicitly configured proxy IPs.
+    return request.state.session
+
+def client_ip(request):
+    # Conservative IP rate limit; untrusted forwarding headers are never accepted.
     return hashlib.sha256(salt + (request.client.host if request.client else 'unknown').encode()).hexdigest()
 
 def limit(request, bucket, count):
     now = time.monotonic()
-    key = (owner(request), bucket)
+    key = (client_ip(request), bucket)
     q = rates[key]
     while q and now-q[0] > 60: q.popleft()
     if len(q) >= count: raise HTTPException(429, 'Слишком много запросов. Повторите через минуту.')
@@ -127,6 +131,12 @@ app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 
 @app.middleware('http')
 async def headers(request, call_next):
+    cookie = request.cookies.get('framesave_session', '')
+    parts = cookie.split('.')
+    valid = len(parts) == 2 and len(parts[0]) == 32 and hmac.compare_digest(
+        parts[1], hmac.new(salt, parts[0].encode(), hashlib.sha256).hexdigest())
+    session = parts[0] if valid else secrets.token_hex(16)
+    request.state.session = session
     if request.method == 'POST':
         # Bound streamed bodies too, rather than trusting Content-Length.
         body = bytearray()
@@ -140,6 +150,10 @@ async def headers(request, call_next):
             if urlsplit(origin).netloc != request.headers.get('host'):
                 return JSONResponse({'detail':'Недопустимый источник запроса.'},403)
     response = await call_next(request)
+    if not valid:
+        signature = hmac.new(salt, session.encode(), hashlib.sha256).hexdigest()
+        response.set_cookie('framesave_session', session+'.'+signature, httponly=True,
+            secure=bool(os.getenv('RENDER')), samesite='strict', max_age=3600)
     response.headers.update({'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'X-Frame-Options':'DENY','Cache-Control':'no-store',
         'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"})
